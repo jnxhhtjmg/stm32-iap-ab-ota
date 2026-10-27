@@ -1,0 +1,6 @@
+* text=auto eol=lf
+*.hex text eol=lf
+*.bin binary
+*.exe binary
+*.png binary
+*.pdf binary
