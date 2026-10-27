@@ -13,6 +13,11 @@
 - CCM API 表：confirm / state / active_slot / request_update / running_version
 - OLED 状态提示
 
+## v1.2.1
+
+- 修正 IWDG 处理：Bootloader 启动将看门狗重配为 8 s（大于最坏扇区擦除时间），每个扇区擦除前喂一次、擦除后立即补喂；明确擦除期间 CPU 停住、不能在等待循环里喂狗。
+- 上板验证：128 K 扇区擦除升级 2.6 s 完成，A/B 均 CONFIRMED。
+
 ## v1.1
 
 ### 安全
@@ -23,7 +28,7 @@
 - 元数据 v2：加入 `min_version`（防回滚）与 `sec_flags`，CRC 移到 0x5C、覆盖 92 B
 - 新增 `INFO` 命令（0x0A）；低于下限的 START 返回 `ERR_ROLLBACK`
 - 签名域改为 `version + size + crc + sha256`（44 B），防止改版本号绕过防回滚
-- Bootloader 栈 8 KB；协议循环与 Flash 等待期间喂 IWDG
+- Bootloader 栈 8 KB；IWDG 重配为 8 s，擦除前后喂狗，协议空闲循环持续喂
 - 上板实测：签名升级 / 未签名拒绝 / 降级拒绝 / 坏固件回滚全部通过
 - 修复：START 先追加 BAD 记录再擦目标槽，ABORT/掉电后不会把空槽当可用；禁止对活动槽 START
 - 上板验证：START+ABORT 后 A 显示 BAD，重启自动回滚到 B

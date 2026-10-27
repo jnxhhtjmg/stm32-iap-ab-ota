@@ -14,6 +14,7 @@
 #include "stm32f4xx.h"
 #include "ab_api.h"
 #include "ab_config.h"
+#include "ab_flash.h"
 #include "ab_image.h"
 #include "ab_meta.h"
 #include "ab_proto.h"
@@ -138,6 +139,7 @@ int main(void)
     ab_time_init();
     ab_uart_init(AB_DEFAULT_BAUD);
     boot_gpio_init();
+    ab_wdg_init();          /* 8 s window: longer than the worst sector erase */
 
     print_str("\r\nAB-IAP boot v1.1\r\n");
 

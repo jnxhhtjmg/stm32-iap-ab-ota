@@ -8,6 +8,16 @@
 
 #define FLASH_TIMEOUT   0xFFFFFFFFu
 
+void ab_wdg_init(void)
+{
+    /* LSI ~32 kHz, /256 -> ~125 Hz, reload 1000 -> ~8 s.  Writing PR/RLR
+     * only takes effect after 0x5555 and does not start a stopped IWDG. */
+    IWDG->KR = 0x5555u;
+    IWDG->PR = 6u;
+    IWDG->RLR = 1000u;
+    IWDG->KR = 0xAAAAu;
+}
+
 void ab_wdg_feed(void)
 {
     IWDG->KR = 0xAAAAu;
@@ -18,9 +28,10 @@ static int flash_wait(void)
     uint32_t guard = FLASH_TIMEOUT;
 
     while ((FLASH->SR & FLASH_SR_BSY) != 0u) {
-        /* The application may have started the independent watchdog before
-         * requesting an update; a 128 KB erase can outlive its 4 s timeout.
-         * Reloading a stopped IWDG is harmless, so just feed it here. */
+        /* This loop only runs while the core can still fetch from flash, i.e.
+         * between short word programs.  During a sector erase the core stalls
+         * on the flash access, so the real guard is ab_wdg_feed() before and
+         * after the erase plus the 8 s timeout set in ab_wdg_init(). */
         ab_wdg_feed();
         if (--guard == 0u) {
             return AB_FLASH_ERR;
@@ -79,9 +90,11 @@ int ab_flash_erase_sector(uint32_t sector)
     flash_clear_flags();
 
     FLASH->CR = FLASH_CR_SER | FLASH_CR_PSIZE_1 | (sector << FLASH_CR_SNB_Pos);
+    ab_wdg_feed();                 /* last feed before the core stalls */
     FLASH->CR |= FLASH_CR_STRT;
 
     rc = flash_wait();
+    ab_wdg_feed();                 /* first feed after the erase completes */
     FLASH->CR &= ~(FLASH_CR_SER | FLASH_CR_STRT);
     if (flash_has_error()) {
         rc = AB_FLASH_ERR;

@@ -16,7 +16,11 @@ int ab_flash_erase_range(uint32_t addr, uint32_t len);
 int ab_flash_program(uint32_t addr, const void *data, uint32_t len);
 int ab_flash_blank(uint32_t addr, uint32_t len);
 
-/* Reload the IWDG if the application left it running. */
+/* Extend the IWDG to ~8 s and reload it.  Safe to call even when the
+ * application never started the watchdog. */
+void ab_wdg_init(void);
+
+/* Reload the IWDG if it is running. */
 void ab_wdg_feed(void);
 
 #endif /* AB_FLASH_H */

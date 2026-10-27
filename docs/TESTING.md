@@ -87,6 +87,6 @@ failures = 0
 
 上板过程中发现并修复：
 
-- IWDG 由应用启动后跨复位存活，Bootloader 在擦写和协议循环中补喂狗；
+- IWDG 由应用启动后跨复位存活；Bootloader 启动将其重配为 8 s，扇区擦除前后各喂一次，协议空闲循环持续喂；
 - TweetNaCl 验签栈需求超过 4 KB，Bootloader 栈提到 8 KB；
 - START 签名域从“仅 SHA-256”改为“version + size + crc + sha256”。
