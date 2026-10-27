@@ -9,7 +9,7 @@ description = "Host tools for the STM32F407 A/B dual-bank IAP"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
-authors = [{ name = "Wang Hao" }]
+authors = [{ name = "W.H." }]
 dependencies = [
     "pyserial>=3.5",
     "PyNaCl>=1.5",
