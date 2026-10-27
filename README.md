@@ -4,6 +4,7 @@
 [![MCU](https://img.shields.io/badge/MCU-STM32F407VE-blue.svg)]()
 [![Protocol](https://img.shields.io/badge/protocol-v1-green.svg)](docs/PROTOCOL.md)
 [![Python](https://img.shields.io/badge/python-3.10%2B-3776AB.svg)]()
+[![ci](https://github.com/jnxhhtjmg/stm32-iap-ab-ota/actions/workflows/ci.yml/badge.svg)](https://github.com/jnxhhtjmg/stm32-iap-ab-ota/actions/workflows/ci.yml)
 
 一个跑在 **STM32F407VE** 上的 direct-xip A/B 双区 IAP：
 两个槽各自链接、原地运行，升级只写非活动槽，切换只改 96 字节元数据；
@@ -20,13 +21,13 @@
 - **追加式元数据**：96 字节记录，CRC32 自校验，最多 170 条，写满自动整理。
 - **试运行回滚**：`TRIAL → CONFIRMED`，`attempts` 到 3 次未确认就回滚，回滚耗时 < 50 ms。
 - **掉电安全**：三个写入窗口（擦槽 / 写镜像 / 写记录）共 388 个断电点，逐个仿真 0 失败。
-- **串口协议**：`AA 55` 同步 + 长度 + CRC32，9 条命令，508 字节分片，逐帧 ACK。
+- **串口协议**：`AA 55` 同步 + 长度 + CRC32，10 条命令，508 字节分片，逐帧 ACK。
 - **上位机三件套**：协议库、命令行、Tkinter GUI，全部纯 Python。
 - **跨复位 API**：Bootloader 在 CCM 发布函数表，应用可调 `confirm()` / `request_update()`。
 - **Ed25519 签名**：START 携带 64 字节签名，Bootloader 只认私钥签过的镜像。
 - **防回滚**：元数据记录单调 `min_version`，低于下限的镜像在 START 阶段就被拒绝。
 - **INFO 命令**：一条命令读出 Boot 版本、活动槽、状态、版本、下限、大小。
-- **寄存器级实现**：不依赖 HAL，Flash/USART/GPIO 直接操作寄存器，Bootloader 约 19.7 KB。
+- **寄存器级实现**：不依赖 HAL，Flash/USART/GPIO 直接操作寄存器，Bootloader 约 20.5 KB。
 - **OLED 提示**：SSD1306（I2C1，PB8/PB9）显示当前槽与升级状态。
 
 ## 架构
@@ -68,6 +69,11 @@
 
 ## 快速开始
 
+```bash
+git clone https://github.com/jnxhhtjmg/stm32-iap-ab-ota.git
+cd stm32-iap-ab-ota
+```
+
 ### 1. 硬件
 
 - STM32F407VE 核心板（DevEBox / 大越创新 2019M）
@@ -105,7 +111,8 @@ meta_a.bin         → 0x08008000
 ```bash
 # 仓库自带 demo 密钥（keys/demo_signing.key），开箱即用；生产环境：
 # python tools/gen_key.py --force      # 生成新密钥 + 更新 ab_pubkey.c，再重编 boot
-python tools/iap_update.py --port COM6 --image release/firmware/app_slot_b.hex --version 1.0.6
+python tools/iap_update.py --port COM6 --image release/firmware/app_slot_b.hex \
+    --version 1.1.0 --key keys/demo_signing.key
 python tools/iap_gui.py       # 图形界面
 ```
 
@@ -174,9 +181,9 @@ tests/         Python 单元测试
 
 ## 路线图
 
-- **v1.1**：防回滚版本号、断点续传、`INFO` 命令（Ed25519 已完成）
-- **v1.2**：CMake + arm-none-eabi-gcc 构建、GitHub Actions 产出固件、协议模糊测试
-- **v1.3**：传输层抽象（UART/CAN/USB）、差分升级
+- **v1.2**（当前）：Ed25519 签名、防回滚、`INFO`、上板验证（升级/拒绝/回滚/拔电）
+- **v1.3**：元数据 170 条压缩压力测试、CMake + GCC 构建、协议 fuzz
+- **v1.4**：断点续传、传输层抽象（UART/CAN/USB）、差分升级
 
 ## 许可
 
