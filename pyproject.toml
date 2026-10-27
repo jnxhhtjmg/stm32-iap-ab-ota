@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "abiap-tools"
+version = "1.0.0"
+description = "Host tools for the STM32F407 A/B dual-bank IAP"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Wang Hao" }]
+dependencies = [
+    "pyserial>=3.5",
+    "PyNaCl>=1.5",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=7"]
+
+[project.scripts]
+iap-update = "iap_update:main"
+iap-gui = "iap_gui:main"
+
+[tool.setuptools]
+package-dir = { "" = "tools" }
+py-modules = ["iap_proto", "iap_update", "iap_gui", "powerloss_sim", "flash_uart"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"

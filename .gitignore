@@ -1,0 +1,49 @@
+# build output
+*.o
+*.d
+*.axf
+*.hex
+*.bin
+*.map
+*.lst
+*.crf
+*.dep
+*.htm
+*.lnp
+*.sct
+*.uvguix.*
+!release/firmware/*.hex
+!release/firmware/*.bin
+
+# keil
+MDK-ARM/*/Objects/
+MDK-ARM/*/Listings/
+app/MDK/*/Objects/
+app/MDK/*/Listings/
+bootloader/MDK/*/Objects/
+bootloader/MDK/*/Listings/
+build_*.log
+
+# secrets and test artifacts
+keys/prod_*.key
+tests/crypto/*.exe
+tests/crypto/vectors/
+tests/crypto/*.o
+tweetnacl.o
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+
+# os / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

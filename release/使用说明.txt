@@ -1,0 +1,38 @@
+﻿A/B IAP 升级工具（桌面版）
+==========================
+
+一、第一次使用
+1. 用 ST-Link 给板子烧一次固件（只需一次）：
+   右键“首次烧录.ps1” → 使用 PowerShell 运行
+   或者命令行：powershell -ExecutionPolicy Bypass -File .\首次烧录.ps1
+2. 双击“AB-IAP升级工具.exe”。
+
+二、日常升级
+1. 选择串口（COMx），点“连接”；连不上就点“应用→升级模式”或按板子复位键。
+2. 点“刷新状态”，确认 active 槽和版本。
+3. 点“浏览”，选择 firmware\app_slot_b.hex，版本填 1.0.4，点“开始升级”。
+4. 进度条走完，设备自动重启，3 秒后确认。
+5. 再点“刷新状态”，应显示 active=B 且两个槽都是 CONFIRMED。
+
+三、签名说明
+仓库自带演示私钥 keys\demo_signing.key，开箱可用；
+生产环境请运行 python tools\gen_key.py --force 生成新密钥，
+并重新编译 Bootloader（公钥在 ab_pubkey.c）。
+
+四、回滚演示
+前提：当前在 A 槽运行。
+1. 选择 firmware\app_slot_b_bad.hex，版本 9.9.9，开始升级。
+2. 设备试用 B，坏固件停止喂狗，4 秒后看门狗复位。
+3. 连续 3 次后自动回滚到 A，界面状态恢复 active=A。
+
+五、注意事项
+- 串口固定 115200 8N1，CH340 需要 3.3V 电平档。
+- OLED 不亮是正常的：示例应用只做串口心跳。
+- 升级过程中不要断电；即使断电，重启也会跑旧固件。
+- 需要 Python 3 + pyserial + PyNaCl（python -m pip install pyserial pynacl）。
+
+六、文件说明
+AB-IAP升级工具.exe   主程序
+tools\               上位机源码（Python）
+firmware\            固件：bootloader / A槽 / B槽 / 坏固件 / 出厂元数据
+首次烧录.ps1         用 ST-Link 烧 bootloader + A槽 + 元数据
