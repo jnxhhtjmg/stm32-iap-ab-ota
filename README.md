@@ -5,6 +5,7 @@
 [![Protocol](https://img.shields.io/badge/protocol-v1-green.svg)](docs/PROTOCOL.md)
 [![Python](https://img.shields.io/badge/python-3.10%2B-3776AB.svg)]()
 [![ci](https://github.com/jnxhhtjmg/stm32-iap-ab-ota/actions/workflows/ci.yml/badge.svg)](https://github.com/jnxhhtjmg/stm32-iap-ab-ota/actions/workflows/ci.yml)
+[![release](https://img.shields.io/github/v/release/jnxhhtjmg/stm32-iap-ab-ota)](https://github.com/jnxhhtjmg/stm32-iap-ab-ota/releases)
 
 一个跑在 **STM32F407VE** 上的 direct-xip A/B 双区 IAP：
 两个槽各自链接、原地运行，升级只写非活动槽，切换只改 96 字节元数据；
@@ -14,6 +15,19 @@
 > Two independently linked slots, append-only 96-byte metadata, crash-safe by design.
 
 ---
+
+## 下载
+
+预编译固件与校验文件见 [v1.2.0 Release](https://github.com/jnxhhtjmg/stm32-iap-ab-ota/releases/tag/v1.2.0)：
+
+| 文件 | 用途 |
+| --- | --- |
+| [f407_iap_boot.hex](https://github.com/jnxhhtjmg/stm32-iap-ab-ota/releases/download/v1.2.0/f407_iap_boot.hex) | Bootloader → 0x08000000 |
+| [app_slot_a.hex](https://github.com/jnxhhtjmg/stm32-iap-ab-ota/releases/download/v1.2.0/app_slot_a.hex) | A 槽应用 → 0x0800C000 |
+| [app_slot_b.hex](https://github.com/jnxhhtjmg/stm32-iap-ab-ota/releases/download/v1.2.0/app_slot_b.hex) | B 槽应用 → 0x08040000 |
+| [app_slot_b_bad.hex](https://github.com/jnxhhtjmg/stm32-iap-ab-ota/releases/download/v1.2.0/app_slot_b_bad.hex) | 回滚演示（永不确认） |
+| [meta_a.bin](https://github.com/jnxhhtjmg/stm32-iap-ab-ota/releases/download/v1.2.0/meta_a.bin) | 出厂元数据 → 0x08008000 |
+| [SHA256SUMS](https://github.com/jnxhhtjmg/stm32-iap-ab-ota/releases/download/v1.2.0/SHA256SUMS) | 校验文件 |
 
 ## 特性
 
