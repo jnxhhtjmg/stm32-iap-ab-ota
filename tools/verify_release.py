@@ -20,6 +20,7 @@ TARGETS = [
 ]
 SUMS = ROOT / "release" / "SHA256SUMS"
 EXTS = {".hex", ".bin", ".py", ".exe", ".ps1", ".txt"}
+TEXT_EXTS = {".hex", ".py", ".ps1", ".txt"}
 
 
 def collect() -> list[Path]:
@@ -35,11 +36,12 @@ def collect() -> list[Path]:
 
 
 def digest(path: Path) -> str:
-    h = hashlib.sha256()
-    with path.open("rb") as fh:
-        for chunk in iter(lambda: fh.read(1 << 16), b""):
-            h.update(chunk)
-    return h.hexdigest().upper()
+    """SHA-256 of the canonical content: text files are hashed with LF endings
+    so a CRLF checkout and a Linux CI checkout agree."""
+    data = path.read_bytes()
+    if path.suffix.lower() in TEXT_EXTS:
+        data = data.replace(b"\r\n", b"\n")
+    return hashlib.sha256(data).hexdigest().upper()
 
 
 def write() -> int:
