@@ -102,5 +102,6 @@ failures = 0
 | 断点续传 | 传 5080 B 后 REBOOT（不 END），重新 START 同镜像 | 返回 offset=4096，继续传完，END 成功 |
 | ABORT | START 后传 508 B，发 ABORT | 目标槽标 BAD，另一槽仍 CONFIRMED |
 | 无主机回退 | 制造 DOWNLOADING 后复位，5 s 内不连接 | 等 5 s 后启动另一槽，不卡在 Bootloader |
+| 元数据 compaction | 灌满 170 条记录后 START 新下载 | compaction 成功，Bootloader 正常，B 升级到 1.3.5 |
 
 HIL 脚本：`tools/hil_duplicate_ack.py --port COM6`、`tools/hil_resume.py --port COM6`。

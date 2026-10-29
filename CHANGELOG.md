@@ -23,6 +23,7 @@
 - 有 DOWNLOADING 记录时 Boot 只等 5 s 续传窗口：无主机则回退到另一槽，不再卡在 Bootloader。
 - 下载中 30 s 无帧自动复位，避免主机掉线后永久占用。
 - 修复元数据 compaction 擦错扇区的问题（原来擦 S1，会破坏 Bootloader；现在按 AB_META_ADDR 计算扇区）。
+- HIL：灌满 170 条记录触发 compaction，Bootloader 正常，随后 B 槽升级到 1.3.5。
 
 ## v1.2.2
 
