@@ -17,6 +17,7 @@
 
 - DATA 支持重复帧幂等：ACK 丢失后主机重发同一分片，设备直接回当前偏移，不重复写、不重复计入 CRC/SHA。
 - START 拒绝在活动槽为 TRIAL 时升级另一个槽，避免擦掉唯一回退点。
+- 回滚时先把失败槽显式标 BAD，再追加旧槽 CONFIRMED，STATUS 不再显示 TRIAL attempts=3。
 - 修正 PROTOCOL.md 错误码表（1 CRC、2 LEN、3 STATE、4 SIZE、5 FLASH、6 VERIFY、7 VERSION、8 SIGNATURE、9 ROLLBACK）。
 
 ## v1.2.1

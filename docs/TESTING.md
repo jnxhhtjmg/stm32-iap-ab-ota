@@ -55,7 +55,7 @@ failures = 0
 | --- | --- |
 | 8 KB 升级耗时 | 1.8 s |
 | 回滚耗时 | < 50 ms |
-| Bootloader 大小 | 约 20.6 KB ROM / 10 KB RAM（32 KB 区，含 TweetNaCl） |
+| Bootloader 大小 | 约 20.7 KB ROM / 10 KB RAM（32 KB 区，含 TweetNaCl） |
 | 应用大小 | 8,144 B |
 | 元数据记录 | 96 B × 170 |
 | 掉电断点 | 388（0 失败） |
@@ -97,6 +97,6 @@ failures = 0
 | --- | --- | --- |
 | 丢 ACK 重发 | 首片 508 B 正常写入后，立即重发同一帧 | 设备回 ACK(508)，不重复写；继续传完，END 成功 |
 | 活动槽 TRIAL | A=CONFIRMED，B 刷入永不确认固件，B 进入 TRIAL 后尝试 START A | 被拒绝，返回 `ERR_STATE`，日志 `active is trial, confirm first` |
-| 坏固件回滚 | 让 B 的 TRIAL 计满 3 次 | 启动回 A；重新刷 B 后两槽 CONFIRMED |
+| 坏固件回滚 | 让 B 的 TRIAL 计满 3 次 | B 显式标 BAD，启动回 A；重新刷 B 后两槽 CONFIRMED |
 
 HIL 脚本：`tools/hil_duplicate_ack.py --port COM6`。

@@ -104,6 +104,8 @@ static int rollback(uint8_t failed_slot)
 {
     uint8_t other = ab_slot_other(failed_slot);
     ab_meta_rec_t rec;
+    ab_meta_rec_t bad;
+    ab_meta_rec_t cur;
 
     if (!ab_meta_find(other, &rec)) {
         return 0;
@@ -114,6 +116,19 @@ static int rollback(uint8_t failed_slot)
         }
     } else if (!ab_image_vectors_ok(other)) {
         return 0;
+    }
+
+    /* Make the failure explicit instead of leaving the slot in TRIAL with
+     * attempts==MAX.  A BAD record also keeps a later STATUS query honest. */
+    if (!(ab_meta_find(failed_slot, &cur) && cur.state == AB_ST_BAD)) {
+        memset(&bad, 0, sizeof(bad));
+        bad.slot = failed_slot;
+        bad.state = AB_ST_BAD;
+        bad.min_version = ab_meta_min_version();
+        bad.sec_flags = AB_SEC_SIGNED;
+        if (ab_meta_append(&bad, 1) != 0) {
+            return 0;
+        }
     }
 
     rec.state = AB_ST_CONFIRMED;
