@@ -230,6 +230,7 @@ static void cmd_start(const ab_frame_t *f)
     uint32_t version;
     uint32_t size;
     uint8_t active = AB_SLOT_A;
+    uint8_t active_state = AB_ST_CONFIRMED;
     ab_meta_rec_t latest;
     ab_meta_rec_t bad;
 
@@ -239,6 +240,7 @@ static void cmd_start(const ab_frame_t *f)
     }
     if (ab_meta_load(&latest)) {
         active = latest.slot;
+        active_state = latest.state;
     }
 
     slot = f->payload[0];
@@ -266,6 +268,15 @@ static void cmd_start(const ab_frame_t *f)
         return;
     }
     if (slot == active) {
+        reply_status(f, AB_ERR_STATE);
+        return;
+    }
+    /* Refuse to erase the fallback while the running slot is still on trial:
+     * if the trial image is later rejected, the other slot would be the only
+     * way back and it may already be half erased.  A BAD/NONE active slot is
+     * left allowed so the recovery path can still program a good image. */
+    if (active_state == AB_ST_TRIAL) {
+        ab_uart_write_str("active is trial, confirm first\r\n");
         reply_status(f, AB_ERR_STATE);
         return;
     }
@@ -333,8 +344,25 @@ static void cmd_data(const ab_frame_t *f)
     offset = rd32(&f->payload[0]);
     n = (uint32_t)f->len - 4u;
 
-    if (offset != s_dl.written || (s_dl.written + n) > s_dl.size) {
-        reply_status(f, AB_ERR_STATE);
+    if (n == 0u || offset > s_dl.size || n > (s_dl.size - offset)) {
+        reply_status(f, AB_ERR_SIZE);
+        return;
+    }
+    if (offset > s_dl.written) {
+        reply_status(f, AB_ERR_STATE);   /* gap: earlier data is missing */
+        return;
+    }
+    if (offset < s_dl.written) {
+        if (n <= (s_dl.written - offset)) {
+            /* Fully-covered range: the host retried after losing our ACK.
+             * Do not program or hash it twice; just report the real offset. */
+            memset(out, 0, sizeof(out));
+            out[0] = AB_OK;
+            wr32(&out[1], s_dl.written);
+            reply(f, out, 6u);
+            return;
+        }
+        reply_status(f, AB_ERR_STATE);   /* partial overlap: not resumable */
         return;
     }
 

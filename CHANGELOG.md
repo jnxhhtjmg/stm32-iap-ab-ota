@@ -13,6 +13,12 @@
 - CCM API 表：confirm / state / active_slot / request_update / running_version
 - OLED 状态提示
 
+## v1.2.2
+
+- DATA 支持重复帧幂等：ACK 丢失后主机重发同一分片，设备直接回当前偏移，不重复写、不重复计入 CRC/SHA。
+- START 拒绝在活动槽为 TRIAL 时升级另一个槽，避免擦掉唯一回退点。
+- 修正 PROTOCOL.md 错误码表（1 CRC、2 LEN、3 STATE、4 SIZE、5 FLASH、6 VERIFY、7 VERSION、8 SIGNATURE、9 ROLLBACK）。
+
 ## v1.2.1
 
 - 修正 IWDG 处理：Bootloader 启动将看门狗重配为 8 s（大于最坏扇区擦除时间），每个扇区擦除前喂一次、擦除后立即补喂；明确擦除期间 CPU 停住、不能在等待循环里喂狗。

@@ -22,8 +22,8 @@
 | 命令 | 码 | 请求 payload | 响应 payload |
 | --- | --- | --- | --- |
 | HELLO | 0x01 | 空 | `proto, version, active_slot, state` |
-| START | 0x02 | `slot(1) + pad(3) + version(4) + size(4) + crc32(4) + sha256(32) + sig(64)` | `status, slot, offset(4)`；验签后先把目标槽标记为 BAD，再擦除；目标为活动槽时返回 `ERR_STATE` |
-| DATA | 0x03 | `offset(4) + data(≤508)` | `status, written(4)` |
+| START | 0x02 | `slot(1) + pad(3) + version(4) + size(4) + crc32(4) + sha256(32) + sig(64)` | `status, slot, offset(4)`；验签后先把目标槽标记为 BAD，再擦除；目标为活动槽、或活动槽仍为 TRIAL 时返回 `ERR_STATE` |
+| DATA | 0x03 | `offset(4) + data(≤508)` | `status, written(4)`；完全落在已写范围内的重复帧直接回 ACK，不重复写 |
 | END | 0x04 | `crc32(4) + sha256(32)` | `status, slot, version(4)` |
 | STATUS | 0x05 | 空 | `count + count × (slot, state, version, size)` |
 | CONFIRM | 0x06 | 空 | `status` |
@@ -39,13 +39,13 @@
 | 值 | 名称 | 含义 |
 | --- | --- | --- |
 | 0 | OK | 成功 |
-| 1 | ERR_STATE | 当前状态不允许 |
+| 1 | ERR_CRC | 帧 CRC 不符 |
 | 2 | ERR_LEN | 长度非法 |
-| 3 | ERR_SIZE | 镜像大小非法 |
-| 4 | ERR_VERSION | 版本号非法 |
+| 3 | ERR_STATE | 当前状态不允许 |
+| 4 | ERR_SIZE | 镜像大小非法 |
 | 5 | ERR_FLASH | Flash 操作失败 |
-| 6 | ERR_CRC | 镜像 CRC 不符 |
-| 7 | ERR_VERIFY | SHA/向量表校验失败 |
+| 6 | ERR_VERIFY | 整镜像 SHA/向量表校验失败 |
+| 7 | ERR_VERSION | 版本号非法 |
 | 8 | ERR_SIGNATURE | Ed25519 签名无效 |
 | 9 | ERR_ROLLBACK | 版本低于 min_version |
 
@@ -63,6 +63,21 @@ REBOOT ──────────────────>  回复后复位
 ```
 
 每帧等 ACK，超时重发 3 次。
+
+## 重复帧与丢 ACK
+
+主机重发同一 DATA 帧时，offset 会小于设备已写偏移。设备按以下规则处理：
+
+| 条件 | 行为 |
+| --- | --- |
+| `offset == written` | 正常写入，返回新的 written |
+| `offset < written` 且 `offset + n <= written` | 重复帧：不重写、不重复计入 CRC/SHA，直接回 `OK(written)` |
+| `offset < written` 但尾部超出 written | 部分重叠，返回 `ERR_STATE` |
+| `offset > written` | 有空洞，返回 `ERR_STATE` |
+
+这样 ACK 丢失时，主机重发不会把数据写两遍，也不会让整镜像 CRC 算错。
+
+另外，活动槽为 TRIAL 时 START 会被拒绝：此时另一个槽是唯一回退点，不能擦。
 
 ## 元数据记录（96 B）
 
