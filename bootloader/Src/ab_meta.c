@@ -116,7 +116,7 @@ int ab_meta_find(uint8_t slot, ab_meta_rec_t *out)
 
 int ab_meta_compact(const ab_meta_rec_t *latest)
 {
-    if (ab_flash_erase_sector(1u) != AB_FLASH_OK) {
+    if (ab_flash_erase_sector(ab_flash_sector_of(AB_META_ADDR)) != AB_FLASH_OK) {
         return -1;
     }
     if (latest != NULL) {

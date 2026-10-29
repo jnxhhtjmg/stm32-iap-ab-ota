@@ -169,12 +169,28 @@ int main(void)
 
     if (state == AB_ST_DOWNLOADING) {
         /* The newest record belongs to a non-active slot whose transfer was
-         * interrupted.  Keep the other slot as the boot candidate and wait
-         * for the host to resume instead of jumping a half-written image. */
-        request = 1;
-        active = ab_slot_other(latest.slot);
+         * interrupted.  Only offer a resume window if the other slot is a
+         * usable fallback; otherwise go straight to recovery. */
+        uint8_t other = ab_slot_other(latest.slot);
+        ab_meta_rec_t orec;
+        int fallback_ok = 0;
+
+        if (ab_meta_find(other, &orec) &&
+            (orec.state == AB_ST_CONFIRMED || orec.state == AB_ST_TRIAL)) {
+            fallback_ok = (orec.img_size != 0u)
+                              ? ab_image_verify(&orec, 0)
+                              : ab_image_vectors_ok(other);
+        }
+        if (!fallback_ok) {
+            print_str("download pending, no valid fallback\r\n");
+            goto recovery;
+        }
+
+        active = other;
         state = AB_ST_CONFIRMED;
-        print_str("download pending, resume in update mode\r\n");
+        print_str("download pending, waiting for host\r\n");
+        ab_proto_resume_window(AB_RESUME_WINDOW_MS);
+        print_str("no host, boot fallback\r\n");
     }
 
     if (!have && !ab_image_vectors_ok(AB_SLOT_A)) {
@@ -230,7 +246,6 @@ int main(void)
 reload:
     have = ab_meta_load(&latest);
     if (have && latest.state == AB_ST_DOWNLOADING) {
-        request = 1;
         active = ab_slot_other(latest.slot);
         state = AB_ST_CONFIRMED;
     } else {

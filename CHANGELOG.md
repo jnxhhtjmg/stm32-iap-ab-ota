@@ -19,6 +19,10 @@
 - 恢复下载时从 Flash 重算已写前缀的 CRC32/SHA-256，END 仍做整镜像校验。
 - Boot 看到 DOWNLOADING 记录时不启动目标槽，停在升级模式等待续传。
 - HIL：传 5080 B 后复位，重新 START 返回 4096，续传后 END 成功。
+- ABORT 现在把目标槽显式标 BAD，而不是留下 DOWNLOADING。
+- 有 DOWNLOADING 记录时 Boot 只等 5 s 续传窗口：无主机则回退到另一槽，不再卡在 Bootloader。
+- 下载中 30 s 无帧自动复位，避免主机掉线后永久占用。
+- 修复元数据 compaction 擦错扇区的问题（原来擦 S1，会破坏 Bootloader；现在按 AB_META_ADDR 计算扇区）。
 
 ## v1.2.2
 

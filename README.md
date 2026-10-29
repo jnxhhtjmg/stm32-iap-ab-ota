@@ -44,7 +44,7 @@
 - **Ed25519 签名**：START 携带 64 字节签名，Bootloader 只认私钥签过的镜像。
 - **防回滚**：元数据记录单调 `min_version`，低于下限的镜像在 START 阶段就被拒绝。
 - **INFO 命令**：一条命令读出 Boot 版本、活动槽、状态、版本、下限、大小。
-- **寄存器级实现**：不依赖 HAL，Flash/USART/GPIO 直接操作寄存器，Bootloader 约 21.6 KB。
+- **寄存器级实现**：不依赖 HAL，Flash/USART/GPIO 直接操作寄存器，Bootloader 约 22.1 KB。
 - **OLED 提示**：SSD1306（I2C1，PB8/PB9）显示当前槽与升级状态。
 
 ## 架构

@@ -55,7 +55,7 @@ failures = 0
 | --- | --- |
 | 8 KB 升级耗时 | 1.8 s |
 | 回滚耗时 | < 50 ms |
-| Bootloader 大小 | 约 21.6 KB ROM / 10 KB RAM（32 KB 区，含 TweetNaCl） |
+| Bootloader 大小 | 约 22.1 KB ROM / 10 KB RAM（32 KB 区，含 TweetNaCl） |
 | 应用大小 | 8,144 B |
 | 元数据记录 | 96 B × 170 |
 | 掉电断点 | 388（0 失败） |
@@ -100,5 +100,7 @@ failures = 0
 | 坏固件回滚 | 让 B 的 TRIAL 计满 3 次 | B 显式标 BAD，启动回 A；重新刷 B 后两槽 CONFIRMED |
 
 | 断点续传 | 传 5080 B 后 REBOOT（不 END），重新 START 同镜像 | 返回 offset=4096，继续传完，END 成功 |
+| ABORT | START 后传 508 B，发 ABORT | 目标槽标 BAD，另一槽仍 CONFIRMED |
+| 无主机回退 | 制造 DOWNLOADING 后复位，5 s 内不连接 | 等 5 s 后启动另一槽，不卡在 Bootloader |
 
 HIL 脚本：`tools/hil_duplicate_ack.py --port COM6`、`tools/hil_resume.py --port COM6`。

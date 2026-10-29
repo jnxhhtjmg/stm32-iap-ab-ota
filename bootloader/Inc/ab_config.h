@@ -24,6 +24,7 @@
 
 #define AB_META_ADDR        0x08008000u   /* sector 2, 16 KB */
 #define AB_META_SIZE        0x00004000u
+#define AB_META_SECTOR      2u
 
 #define AB_SLOT_A_ADDR      0x0800C000u
 #define AB_SLOT_A_SIZE      0x00034000u   /* 208 KB */
@@ -72,6 +73,8 @@ extern const uint8_t ab_pubkey[32];
 /* --------------------------------------------------------------- protocol */
 #define AB_PROTO_VERSION    2u
 #define AB_RESUME_STEP      4096u  /* persist download progress every 4 KB */
+#define AB_RESUME_WINDOW_MS 5000u  /* boot: wait this long for a host to resume */
+#define AB_DL_TIMEOUT_MS    30000u /* mid-transfer host silence before reset */
 #define AB_SYNC0            0xAAu
 #define AB_SYNC1            0x55u
 #define AB_MAX_PAYLOAD      512u

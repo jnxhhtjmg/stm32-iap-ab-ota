@@ -53,6 +53,31 @@ static uint32_t rd32(const uint8_t *p)
            ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24);
 }
 
+/* Which slot would the boot path actually run?  DOWNLOADING belongs to the
+ * non-active slot; BAD rolls back to a valid other slot, or stays in recovery. */
+static void derive_active(const ab_meta_rec_t *latest, uint8_t *active, uint8_t *state)
+{
+    ab_meta_rec_t other;
+
+    *active = latest->slot;
+    *state = latest->state;
+
+    if (latest->state == AB_ST_DOWNLOADING) {
+        *active = ab_slot_other(latest->slot);
+        *state = AB_ST_CONFIRMED;
+        if (ab_meta_find(*active, &other)) {
+            *state = other.state;
+        }
+    } else if (latest->state == AB_ST_BAD) {
+        uint8_t o = ab_slot_other(latest->slot);
+        if (ab_meta_find(o, &other) &&
+            (other.state == AB_ST_CONFIRMED || other.state == AB_ST_TRIAL)) {
+            *active = o;
+            *state = other.state;
+        }
+    }
+}
+
 /* Persist a DOWNLOADING record so a reset can resume at this offset. */
 static int persist_downloading(uint32_t up_to)
 {
@@ -250,16 +275,7 @@ static void cmd_hello(const ab_frame_t *f)
     uint8_t state = AB_ST_CONFIRMED;
 
     if (ab_meta_load(&latest)) {
-        if (latest.state == AB_ST_DOWNLOADING) {
-            ab_meta_rec_t act;
-            active = ab_slot_other(latest.slot);
-            if (ab_meta_find(active, &act)) {
-                state = act.state;
-            }
-        } else {
-            active = latest.slot;
-            state = latest.state;
-        }
+        derive_active(&latest, &active, &state);
     }
 
     memset(out, 0, sizeof(out));
@@ -294,15 +310,7 @@ static void cmd_start(const ab_frame_t *f)
         return;
     }
     if (ab_meta_load(&latest)) {
-        if (latest.state == AB_ST_DOWNLOADING) {
-            /* A pending download belongs to the non-active slot; the other
-             * slot is still the one that boots. */
-            active = ab_slot_other(latest.slot);
-            active_state = AB_ST_CONFIRMED;
-        } else {
-            active = latest.slot;
-            active_state = latest.state;
-        }
+        derive_active(&latest, &active, &active_state);
     }
 
     slot = f->payload[0];
@@ -331,7 +339,7 @@ static void cmd_start(const ab_frame_t *f)
         reply_status(f, AB_ERR_ROLLBACK);
         return;
     }
-    if (slot == active) {
+    if (slot == active && active_state != AB_ST_BAD) {
         reply_status(f, AB_ERR_STATE);
         return;
     }
@@ -569,18 +577,7 @@ static void cmd_status(const ab_frame_t *f)
 
     memset(out, 0, sizeof(out));
     if (ab_meta_load(&latest)) {
-        if (latest.state == AB_ST_DOWNLOADING) {
-            ab_meta_rec_t act;
-            active = ab_slot_other(latest.slot);
-            if (ab_meta_find(active, &act)) {
-                state = act.state;
-            } else {
-                state = AB_ST_CONFIRMED;
-            }
-        } else {
-            active = latest.slot;
-            state = latest.state;
-        }
+        derive_active(&latest, &active, &state);
     }
     out[0] = AB_OK;
     out[1] = active;
@@ -636,18 +633,13 @@ static void cmd_info(const ab_frame_t *f)
     uint16_t attempts = 0u;
 
     if (ab_meta_load(&latest)) {
-        if (latest.state == AB_ST_DOWNLOADING) {
-            ab_meta_rec_t act;
-            active = ab_slot_other(latest.slot);
-            state = AB_ST_CONFIRMED;
-            if (ab_meta_find(active, &act)) {
-                version = act.version;
-                size = act.img_size;
-                attempts = act.attempts;
-            }
+        ab_meta_rec_t act;
+        derive_active(&latest, &active, &state);
+        if (active != latest.slot && ab_meta_find(active, &act)) {
+            version = act.version;
+            size = act.img_size;
+            attempts = act.attempts;
         } else {
-            active = latest.slot;
-            state = latest.state;
             version = latest.version;
             size = latest.img_size;
             attempts = latest.attempts;
@@ -707,6 +699,15 @@ static void dispatch(const ab_frame_t *f)
     case AB_CMD_SET_BAUD: cmd_set_baud(f); break;
     case AB_CMD_REBOOT:  cmd_reboot(f);  break;
     case AB_CMD_ABORT:
+        if (s_dl.active != 0u) {
+            ab_meta_rec_t rec;
+            memset(&rec, 0, sizeof(rec));
+            rec.slot = s_dl.slot;
+            rec.state = AB_ST_BAD;
+            rec.min_version = ab_meta_min_version();
+            rec.sec_flags = AB_SEC_SIGNED;
+            (void)ab_meta_append(&rec, 1);
+        }
         s_dl.active = 0u;
         reply_status(f, AB_OK);
         break;
@@ -742,6 +743,30 @@ int ab_proto_listen(uint32_t window_ms)
     }
 }
 
+int ab_proto_download_active(void)
+{
+    return s_dl.active != 0u;
+}
+
+void ab_proto_resume_window(uint32_t window_ms)
+{
+    uint32_t start = ab_millis();
+
+    for (;;) {
+        uint32_t elapsed = ab_millis() - start;
+        if (elapsed >= window_ms) {
+            return;
+        }
+        if (ab_proto_listen(window_ms - elapsed)) {
+            if (s_dl.active != 0u) {
+                ab_proto_run();
+            }
+        } else {
+            return;
+        }
+    }
+}
+
 void ab_proto_run(void)
 {
     uint32_t last = ab_millis();
@@ -755,6 +780,11 @@ void ab_proto_run(void)
             dispatch(&f);
             last = ab_millis();
         } else if (s_dl.active == 0u && (ab_millis() - last) > AB_IDLE_RESET_MS) {
+            NVIC_SystemReset();
+        } else if (s_dl.active != 0u && (ab_millis() - last) > AB_DL_TIMEOUT_MS) {
+            /* Host vanished mid-transfer: keep the DOWNLOADING record so a
+             * later boot can resume, but give control back to the boot path. */
+            s_dl.active = 0u;
             NVIC_SystemReset();
         }
     }
