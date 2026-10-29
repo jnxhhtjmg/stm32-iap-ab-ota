@@ -118,14 +118,24 @@ slot B     : v1.3.6  65536 bytes  CONFIRMED
 
 | 项 | 值 |
 | --- | --- |
-| 日期 |  |
-| 镜像 | `big_b.bin`，65,536 B |
+| 日期 | 2026-10-29 |
+| 镜像 | `big_a.bin`，65,536 B（A 槽） |
 | 版本 | 1.3.6 |
-| 拔电时偏移 | 32,768 |
-| 续传返回偏移 |  |
-| 第一次耗时 |  |
-| 第二次耗时 |  |
-| 最终状态 | B CONFIRMED |
+| 拔电时日志 | `sent 36576/65536`，随后 `no response` |
+| 续传返回偏移 | 36,864（4 KB 边界） |
+| 第二次耗时 | 3.5 s，18.1 KB/s |
+| 最终状态 | A CONFIRMED，B 保持 1.3.5 |
+
+实测日志：
+
+```text
+sent 36576/65536 bytes
+错误: no response to 0x03: timeout      ← 拔电
+升级 slot A，版本 1.3.6，65536 bytes
+  resuming at 36864/65536 bytes
+完成: slot A v1.3.6 3.5s (18.1 KB/s)
+状态: active=A state=CONFIRMED
+```
 
 ## 7. 和模拟复位的区别
 

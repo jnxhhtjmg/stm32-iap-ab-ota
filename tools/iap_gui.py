@@ -438,6 +438,7 @@ class App:
                 slot,
                 version,
                 progress=progress,
+                log=self._log,
                 signer=lambda digest: P.sign_message(seed, digest),
             )
             elapsed = time.monotonic() - started
