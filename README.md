@@ -18,16 +18,16 @@
 
 ## 下载
 
-预编译固件与校验文件见 [v1.2.1 Release](https://github.com/jnxhhtjmg/stm32-iap-ab-ota/releases/tag/v1.2.1)：
+预编译固件与校验文件见 [v1.3.0 Release](https://github.com/jnxhhtjmg/stm32-iap-ab-ota/releases/tag/v1.3.0)：
 
 | 文件 | 用途 |
 | --- | --- |
-| [f407_iap_boot.hex](https://github.com/jnxhhtjmg/stm32-iap-ab-ota/releases/download/v1.2.1/f407_iap_boot.hex) | Bootloader → 0x08000000 |
-| [app_slot_a.hex](https://github.com/jnxhhtjmg/stm32-iap-ab-ota/releases/download/v1.2.1/app_slot_a.hex) | A 槽应用 → 0x0800C000 |
-| [app_slot_b.hex](https://github.com/jnxhhtjmg/stm32-iap-ab-ota/releases/download/v1.2.1/app_slot_b.hex) | B 槽应用 → 0x08040000 |
-| [app_slot_b_bad.hex](https://github.com/jnxhhtjmg/stm32-iap-ab-ota/releases/download/v1.2.1/app_slot_b_bad.hex) | 回滚演示（永不确认） |
-| [meta_a.bin](https://github.com/jnxhhtjmg/stm32-iap-ab-ota/releases/download/v1.2.1/meta_a.bin) | 出厂元数据 → 0x08008000 |
-| [SHA256SUMS](https://github.com/jnxhhtjmg/stm32-iap-ab-ota/releases/download/v1.2.1/SHA256SUMS) | 校验文件 |
+| [f407_iap_boot.hex](https://github.com/jnxhhtjmg/stm32-iap-ab-ota/releases/download/v1.3.0/f407_iap_boot.hex) | Bootloader → 0x08000000 |
+| [app_slot_a.hex](https://github.com/jnxhhtjmg/stm32-iap-ab-ota/releases/download/v1.3.0/app_slot_a.hex) | A 槽应用 → 0x0800C000 |
+| [app_slot_b.hex](https://github.com/jnxhhtjmg/stm32-iap-ab-ota/releases/download/v1.3.0/app_slot_b.hex) | B 槽应用 → 0x08040000 |
+| [app_slot_b_bad.hex](https://github.com/jnxhhtjmg/stm32-iap-ab-ota/releases/download/v1.3.0/app_slot_b_bad.hex) | 回滚演示（永不确认） |
+| [meta_a.bin](https://github.com/jnxhhtjmg/stm32-iap-ab-ota/releases/download/v1.3.0/meta_a.bin) | 出厂元数据 → 0x08008000 |
+| [SHA256SUMS](https://github.com/jnxhhtjmg/stm32-iap-ab-ota/releases/download/v1.3.0/SHA256SUMS) | 校验文件 |
 
 ## 特性
 
