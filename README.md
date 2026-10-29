@@ -183,6 +183,7 @@ python tools/powerloss_sim.py
 - 协议、CRC、镜像分析、元数据记录：`tests/`
 - 掉电仿真：388 个断点，0 失败
 - 上板清单：见 [docs/TESTING.md](docs/TESTING.md)
+- 掉电续传实测步骤：见 [docs/POWERLOSS_TEST.md](docs/POWERLOSS_TEST.md)
 
 ## 目录
 
