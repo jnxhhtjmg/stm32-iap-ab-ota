@@ -167,6 +167,16 @@ int main(void)
     active = have ? latest.slot : AB_SLOT_A;
     state = have ? latest.state : AB_ST_CONFIRMED;
 
+    if (state == AB_ST_DOWNLOADING) {
+        /* The newest record belongs to a non-active slot whose transfer was
+         * interrupted.  Keep the other slot as the boot candidate and wait
+         * for the host to resume instead of jumping a half-written image. */
+        request = 1;
+        active = ab_slot_other(latest.slot);
+        state = AB_ST_CONFIRMED;
+        print_str("download pending, resume in update mode\r\n");
+    }
+
     if (!have && !ab_image_vectors_ok(AB_SLOT_A)) {
         print_str("meta: empty, slot A blank\r\n");
         goto recovery;
@@ -219,8 +229,14 @@ int main(void)
 
 reload:
     have = ab_meta_load(&latest);
-    active = have ? latest.slot : AB_SLOT_A;
-    state = have ? latest.state : AB_ST_CONFIRMED;
+    if (have && latest.state == AB_ST_DOWNLOADING) {
+        request = 1;
+        active = ab_slot_other(latest.slot);
+        state = AB_ST_CONFIRMED;
+    } else {
+        active = have ? latest.slot : AB_SLOT_A;
+        state = have ? latest.state : AB_ST_CONFIRMED;
+    }
 
     print_str("meta: slot=");
     print_str(active == AB_SLOT_A ? "A" : "B");

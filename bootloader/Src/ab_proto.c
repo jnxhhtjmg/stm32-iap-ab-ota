@@ -33,10 +33,13 @@ typedef struct {
     uint8_t  slot;
     uint32_t version;
     uint32_t size;
+    uint32_t crc_expect;
     uint32_t written;
     uint32_t addr;
     uint32_t crc_run;
     ab_sha256_ctx sha;
+    uint8_t  sha_img[32];
+    uint32_t persisted;
     uint8_t  buf[AB_DL_BUF];
     uint32_t buf_len;
 } dl_ctx_t;
@@ -48,6 +51,47 @@ static uint32_t rd32(const uint8_t *p)
 {
     return (uint32_t)p[0] | ((uint32_t)p[1] << 8) |
            ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24);
+}
+
+/* Persist a DOWNLOADING record so a reset can resume at this offset. */
+static int persist_downloading(uint32_t up_to)
+{
+    ab_meta_rec_t rec;
+
+    memset(&rec, 0, sizeof(rec));
+    rec.slot = s_dl.slot;
+    rec.state = AB_ST_DOWNLOADING;
+    rec.version = s_dl.version;
+    rec.img_size = s_dl.size;
+    rec.img_crc32 = s_dl.crc_expect;
+    memcpy(rec.sha256, s_dl.sha_img, 32u);
+    rec.written = up_to;
+    rec.min_version = ab_meta_min_version();
+    rec.sec_flags = AB_SEC_SIGNED;
+
+    if (ab_meta_append(&rec, 1) != 0) {
+        return -1;
+    }
+    s_dl.persisted = up_to;
+    return 0;
+}
+
+/* Re-hash the already programmed prefix when resuming an interrupted image. */
+static void hash_prefix(uint32_t base, uint32_t len)
+{
+    const uint8_t *p = (const uint8_t *)(uintptr_t)base;
+    uint32_t i = 0u;
+
+    while (i < len) {
+        uint32_t n = len - i;
+        if (n > 64u) {
+            n = 64u;
+        }
+        s_dl.crc_run = ab_crc32_update(s_dl.crc_run, p + i, n);
+        ab_sha256_update(&s_dl.sha, p + i, n);
+        i += n;
+        ab_wdg_feed();
+    }
 }
 
 static void wr32(uint8_t *p, uint32_t v)
@@ -206,8 +250,16 @@ static void cmd_hello(const ab_frame_t *f)
     uint8_t state = AB_ST_CONFIRMED;
 
     if (ab_meta_load(&latest)) {
-        active = latest.slot;
-        state = latest.state;
+        if (latest.state == AB_ST_DOWNLOADING) {
+            ab_meta_rec_t act;
+            active = ab_slot_other(latest.slot);
+            if (ab_meta_find(active, &act)) {
+                state = act.state;
+            }
+        } else {
+            active = latest.slot;
+            state = latest.state;
+        }
     }
 
     memset(out, 0, sizeof(out));
@@ -233,19 +285,31 @@ static void cmd_start(const ab_frame_t *f)
     uint8_t active_state = AB_ST_CONFIRMED;
     ab_meta_rec_t latest;
     ab_meta_rec_t bad;
+    ab_meta_rec_t prev;
+    const uint8_t *sha_ptr;
+    uint32_t crc_req;
 
     if (f->len < (48u + AB_SIG_BYTES)) {
         reply_status(f, AB_ERR_LEN);
         return;
     }
     if (ab_meta_load(&latest)) {
-        active = latest.slot;
-        active_state = latest.state;
+        if (latest.state == AB_ST_DOWNLOADING) {
+            /* A pending download belongs to the non-active slot; the other
+             * slot is still the one that boots. */
+            active = ab_slot_other(latest.slot);
+            active_state = AB_ST_CONFIRMED;
+        } else {
+            active = latest.slot;
+            active_state = latest.state;
+        }
     }
 
     slot = f->payload[0];
     version = rd32(&f->payload[4]);
     size = rd32(&f->payload[8]);
+    crc_req = rd32(&f->payload[12]);
+    sha_ptr = &f->payload[16];
 
     if (slot == AB_SLOT_NONE) {
         slot = ab_slot_other(active);
@@ -289,6 +353,37 @@ static void cmd_start(const ab_frame_t *f)
     }
     ab_uart_write_str("sig ok\r\n");
 
+    /* Resume an interrupted download of the same image: do not erase or
+     * append another BAD record, just return the persisted offset. */
+    if (ab_meta_find(slot, &prev) &&
+        prev.state == AB_ST_DOWNLOADING &&
+        prev.version == version &&
+        prev.img_size == size &&
+        prev.written <= size &&
+        memcmp(prev.sha256, sha_ptr, 32u) == 0) {
+        memset(&s_dl, 0, sizeof(s_dl));
+        s_dl.active = 1u;
+        s_dl.slot = slot;
+        s_dl.version = version;
+        s_dl.size = size;
+        s_dl.crc_expect = prev.img_crc32;
+        s_dl.written = prev.written;
+        s_dl.persisted = prev.written;
+        s_dl.addr = ab_slot_base(slot) + prev.written;
+        s_dl.crc_run = ab_crc32_start();
+        ab_sha256_init(&s_dl.sha);
+        memcpy(s_dl.sha_img, sha_ptr, 32u);
+        hash_prefix(ab_slot_base(slot), prev.written);
+
+        ab_uart_write_str("resume\r\n");
+        memset(out, 0, sizeof(out));
+        out[0] = AB_OK;
+        out[1] = slot;
+        wr32(&out[2], prev.written);
+        reply(f, out, 6u);
+        return;
+    }
+
     /* Invalidate the target slot before erasing it.  If power is lost between
      * here and END, the log says BAD and the next boot rolls back instead of
      * trusting a slot that no longer holds a complete image. */
@@ -315,9 +410,17 @@ static void cmd_start(const ab_frame_t *f)
     s_dl.slot = slot;
     s_dl.version = version;
     s_dl.size = size;
+    s_dl.crc_expect = crc_req;
     s_dl.addr = ab_slot_base(slot);
     s_dl.crc_run = ab_crc32_start();
     ab_sha256_init(&s_dl.sha);
+    memcpy(s_dl.sha_img, sha_ptr, 32u);
+    s_dl.persisted = 0u;
+
+    if (persist_downloading(0u) != 0) {
+        reply_status(f, AB_ERR_FLASH);
+        return;
+    }
 
     memset(out, 0, sizeof(out));
     out[0] = AB_OK;
@@ -375,6 +478,14 @@ static void cmd_data(const ab_frame_t *f)
         return;
     }
     s_dl.written += n;
+    {
+        uint32_t mark = s_dl.written - (s_dl.written % AB_RESUME_STEP);
+        if (mark > s_dl.persisted) {
+            (void)persist_downloading(mark);
+        } else if (s_dl.written == s_dl.size) {
+            (void)persist_downloading(s_dl.written);
+        }
+    }
 
     memset(out, 0, sizeof(out));
     out[0] = AB_OK;
@@ -458,8 +569,18 @@ static void cmd_status(const ab_frame_t *f)
 
     memset(out, 0, sizeof(out));
     if (ab_meta_load(&latest)) {
-        active = latest.slot;
-        state = latest.state;
+        if (latest.state == AB_ST_DOWNLOADING) {
+            ab_meta_rec_t act;
+            active = ab_slot_other(latest.slot);
+            if (ab_meta_find(active, &act)) {
+                state = act.state;
+            } else {
+                state = AB_ST_CONFIRMED;
+            }
+        } else {
+            active = latest.slot;
+            state = latest.state;
+        }
     }
     out[0] = AB_OK;
     out[1] = active;
@@ -515,11 +636,22 @@ static void cmd_info(const ab_frame_t *f)
     uint16_t attempts = 0u;
 
     if (ab_meta_load(&latest)) {
-        active = latest.slot;
-        state = latest.state;
-        version = latest.version;
-        size = latest.img_size;
-        attempts = latest.attempts;
+        if (latest.state == AB_ST_DOWNLOADING) {
+            ab_meta_rec_t act;
+            active = ab_slot_other(latest.slot);
+            state = AB_ST_CONFIRMED;
+            if (ab_meta_find(active, &act)) {
+                version = act.version;
+                size = act.img_size;
+                attempts = act.attempts;
+            }
+        } else {
+            active = latest.slot;
+            state = latest.state;
+            version = latest.version;
+            size = latest.img_size;
+            attempts = latest.attempts;
+        }
     }
 
     memset(out, 0, sizeof(out));

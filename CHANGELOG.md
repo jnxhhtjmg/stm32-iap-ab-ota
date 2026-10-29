@@ -13,6 +13,13 @@
 - CCM API 表：confirm / state / active_slot / request_update / running_version
 - OLED 状态提示
 
+## v1.3.0
+
+- 新增 `DOWNLOADING` 元数据状态与 4 KB 进度持久化：掉电/断线后 START 同一镜像可返回已写偏移并续传。
+- 恢复下载时从 Flash 重算已写前缀的 CRC32/SHA-256，END 仍做整镜像校验。
+- Boot 看到 DOWNLOADING 记录时不启动目标槽，停在升级模式等待续传。
+- HIL：传 5080 B 后复位，重新 START 返回 4096，续传后 END 成功。
+
 ## v1.2.2
 
 - DATA 支持重复帧幂等：ACK 丢失后主机重发同一分片，设备直接回当前偏移，不重复写、不重复计入 CRC/SHA。

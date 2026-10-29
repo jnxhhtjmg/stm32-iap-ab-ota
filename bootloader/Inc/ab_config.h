@@ -43,6 +43,7 @@
 #define AB_ST_TRIAL         1u
 #define AB_ST_CONFIRMED     2u
 #define AB_ST_BAD           3u
+#define AB_ST_DOWNLOADING   4u   /* non-bootable: transfer in progress */
 
 /* Record flags. */
 #define AB_FLAG_UPDATE_REQ  0x0001u
@@ -70,6 +71,7 @@ extern const uint8_t ab_pubkey[32];
 
 /* --------------------------------------------------------------- protocol */
 #define AB_PROTO_VERSION    2u
+#define AB_RESUME_STEP      4096u  /* persist download progress every 4 KB */
 #define AB_SYNC0            0xAAu
 #define AB_SYNC1            0x55u
 #define AB_MAX_PAYLOAD      512u
@@ -135,7 +137,8 @@ typedef struct __attribute__((packed)) {
     uint8_t  sha256[32];
     uint32_t min_version;   /* anti-rollback floor, monotonic */
     uint32_t sec_flags;     /* bit0: image was signature-checked */
-    uint8_t  reserved[24];
+    uint32_t written;       /* DOWNLOADING: bytes already programmed */
+    uint8_t  reserved[20];
     uint32_t crc32;         /* over bytes [0 .. 92) */
 } ab_meta_rec_t;
 

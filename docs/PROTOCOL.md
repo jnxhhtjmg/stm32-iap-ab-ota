@@ -22,8 +22,8 @@
 | 命令 | 码 | 请求 payload | 响应 payload |
 | --- | --- | --- | --- |
 | HELLO | 0x01 | 空 | `proto, version, active_slot, state` |
-| START | 0x02 | `slot(1) + pad(3) + version(4) + size(4) + crc32(4) + sha256(32) + sig(64)` | `status, slot, offset(4)`；验签后先把目标槽标记为 BAD，再擦除；目标为活动槽、或活动槽仍为 TRIAL 时返回 `ERR_STATE` |
-| DATA | 0x03 | `offset(4) + data(≤508)` | `status, written(4)`；完全落在已写范围内的重复帧直接回 ACK，不重复写 |
+| START | 0x02 | `slot(1) + pad(3) + version(4) + size(4) + crc32(4) + sha256(32) + sig(64)` | `status, slot, offset(4)`；验签后先把目标槽标记为 BAD，再擦除；同 sha/version/size 的 DOWNLOADING 记录存在时直接返回已写偏移；目标为活动槽、或活动槽仍为 TRIAL 时返回 `ERR_STATE` |
+| DATA | 0x03 | `offset(4) + data(≤508)` | `status, written(4)`；重复帧直接回 ACK；每 4 KB 追加 DOWNLOADING 记录 |
 | END | 0x04 | `crc32(4) + sha256(32)` | `status, slot, version(4)` |
 | STATUS | 0x05 | 空 | `count + count × (slot, state, version, size)` |
 | CONFIRM | 0x06 | 空 | `status` |
@@ -79,6 +79,17 @@ REBOOT ──────────────────>  回复后复位
 
 另外，活动槽为 TRIAL 时 START 会被拒绝：此时另一个槽是唯一回退点，不能擦。
 
+## 断点续传
+
+- START 时，如果目标槽最新记录是 `DOWNLOADING`，且 `sha256 / version / img_size` 与本次请求一致，
+  设备**不擦除、不写 BAD**，直接返回 `written` 偏移；
+- 设备从 Flash 重新计算已写前缀的 CRC32/SHA-256，然后从该偏移继续接收 DATA；
+- DATA 每跨过 4 KB 边界追加一条 `DOWNLOADING` 记录（`written` 记为边界值），
+  最多重发不到 4 KB 的已写数据，由重复帧规则吞掉；
+- 掉电/复位后，Boot 看到最新的 `DOWNLOADING` 记录：不启动目标槽，停在升级模式等续传；
+- END 校验通过后写 `TRIAL`，`DOWNLOADING` 被新记录覆盖；
+- `sha256 / version / img_size` 任一不同，视为新升级：标 BAD、擦槽、从 0 开始。
+
 ## 元数据记录（96 B）
 
 | 偏移 | 长度 | 字段 |
@@ -86,7 +97,7 @@ REBOOT ──────────────────>  回复后复位
 | 0x00 | 4 | magic = "ABIF" |
 | 0x04 | 2 | rec_size = 96 |
 | 0x06 | 1 | slot（0=A, 1=B） |
-| 0x07 | 1 | state（1=TRIAL, 2=CONFIRMED, 3=BAD） |
+| 0x07 | 1 | state（1=TRIAL, 2=CONFIRMED, 3=BAD, 4=DOWNLOADING） |
 | 0x08 | 4 | seq（单调递增） |
 | 0x0C | 4 | version |
 | 0x10 | 4 | img_size |
@@ -96,7 +107,8 @@ REBOOT ──────────────────>  回复后复位
 | 0x1C | 32 | sha256 |
 | 0x3C | 4 | min_version（防回滚下限） |
 | 0x40 | 4 | sec_flags（bit0=已验签） |
-| 0x44 | 24 | 保留 |
+| 0x44 | 4 | written（DOWNLOADING 已写字节） |
+| 0x48 | 20 | 保留 |
 | 0x5C | 4 | 记录 CRC32（覆盖前 92 B） |
 
 

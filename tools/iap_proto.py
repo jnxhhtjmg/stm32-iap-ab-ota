@@ -48,7 +48,7 @@ STATUS_TEXT = {
     9: "version below floor",
 }
 
-STATE_TEXT = {0: "EMPTY", 1: "TRIAL", 2: "CONFIRMED", 3: "BAD"}
+STATE_TEXT = {0: "EMPTY", 1: "TRIAL", 2: "CONFIRMED", 3: "BAD", 4: "DOWNLOADING"}
 
 SLOT_A = 0
 SLOT_B = 1
@@ -429,9 +429,14 @@ def upload(
         raise ProtocolError("image signing key required")
     signature = signer(manifest(version, len(image), checksum, digest))
     target, offset = link.start(version, len(image), checksum, digest, slot, signature)
-    if offset != 0:
-        raise ProtocolError(f"device asked for resume at {offset}, not supported")
-    sent = 0
+    if offset > len(image):
+        raise ProtocolError(f"device asked to resume at {offset} > {len(image)}")
+    if offset:
+        if log:
+            log(f"  resuming at {offset}/{len(image)} bytes")
+        if progress:
+            progress(offset, len(image))
+    sent = offset
     while sent < len(image):
         chunk = image[sent : sent + CHUNK_SIZE]
         nxt = link.data(sent, chunk)
